@@ -1032,8 +1032,9 @@ export class GatewayActionImpl {
         : undefined;
     const sandboxTopicMetadata = pendingSandboxSelection
       ? {
+          sandboxDrive: pendingSandboxSelection.drive,
           sandboxInstanceId: pendingSandboxSelection.instanceId,
-          sandboxMode: pendingSandboxSelection.mode,
+          sandboxWorkingDirectory: pendingSandboxSelection.workingDirectory,
         }
       : undefined;
     const cwdTopicMetadata =
