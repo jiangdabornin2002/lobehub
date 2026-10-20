@@ -13,11 +13,20 @@ import { claimsOf, formatVideoTime, stepAt, stepsOf } from './videoTime';
 
 /** A reviewer note as the timeline sees it: a moment, or a span. */
 export interface TimelineNote {
+  /** The comment's annotation colour (see `FrameRegion.color`); reject notes keep the error red. */
+  color?: string;
   comment?: string;
   end?: number;
   key: number | string;
   start: number;
 }
+
+/**
+ * A coloured comment pin selects like its region badge (the screenshot note's
+ * light outline); a reject note keeps the review stage's own ring.
+ */
+const selectedRing = (note: TimelineNote) =>
+  note.color ? styles.noteMarkSelected : styles.noteMarkActive;
 
 /** Hovering within this share of the track snaps to a marker's own frame. */
 const SNAP_RATIO = 0.012;
@@ -243,9 +252,9 @@ export const VideoTimeline = ({
         {notes.map((note) => (
           <button
             aria-label={`${formatVideoTime(note.start)} ${note.comment ?? ''}`}
-            className={cx(styles.noteMark, activeNoteKey === note.key && styles.noteMarkActive)}
+            className={cx(styles.noteMark, activeNoteKey === note.key && selectedRing(note))}
             key={`note-${note.key}`}
-            style={{ left: pct(note.start) }}
+            style={{ background: note.color, left: pct(note.start) }}
             type={'button'}
             // The press must not also scrub the track; the click (pointer, Enter
             // or Space) is what seeks, so the marker works from the keyboard.

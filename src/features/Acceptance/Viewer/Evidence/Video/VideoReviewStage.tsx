@@ -6,7 +6,7 @@ import { Flexbox, Icon } from '@lobehub/ui';
 import { ActionIcon, Button, Text } from '@lobehub/ui/base-ui';
 import { createStaticStyles, cssVar, cx } from 'antd-style';
 import { Flag, MessageSquareText, Repeat, X } from 'lucide-react';
-import type { PointerEvent as ReactPointerEvent, RefObject } from 'react';
+import type { RefObject } from 'react';
 import { memo, useEffect, useImperativeHandle, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
@@ -14,6 +14,7 @@ import type { DraftAnnotationEntry } from '../../Review/rejectDraft';
 import { styles } from './styles';
 import type { VideoLoop } from './useVideoClock';
 import { useVideoClock } from './useVideoClock';
+import { useVideoRegionGesture } from './useVideoRegionGesture';
 import {
   ClaimCaption,
   DraftRegion,
@@ -129,7 +130,7 @@ export const VideoReviewStage = memo<VideoReviewStageProps>(
     const [loop, setLoop] = useState(true);
     const clock = useVideoClock(videoRef, { loop: loop ? range : null, src });
     const { controls, duration, paused, size, status, time } = clock;
-    const [draft, setDraft] = useState<Rect | null>(null);
+    const { draft, onPointerDown: onStageDown } = useVideoRegionGesture(clock, onAddNote);
     const [flash, setFlash] = useState<string | null>(null);
     const flashTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
 
@@ -211,47 +212,6 @@ export const VideoReviewStage = memo<VideoReviewStageProps>(
       window.addEventListener('keydown', onKey, true);
       return () => window.removeEventListener('keydown', onKey, true);
     }, [t]);
-
-    /** Press pauses on the frame on screen; a drag circles a region on it; a click plays. */
-    const onStageDown = (event: ReactPointerEvent<HTMLDivElement>) => {
-      const element = event.currentTarget;
-      const box = element.getBoundingClientRect();
-      const origin = {
-        x: (event.clientX - box.left) / box.width,
-        y: (event.clientY - box.top) / box.height,
-      };
-      const wasPlaying = !paused;
-      // The frame on screen at the press is the one being circled.
-      const start = controls.frameTime();
-      controls.pause();
-      element.setPointerCapture(event.pointerId);
-      let current: Rect | null = null;
-      const clamp = (value: number) => Math.min(Math.max(value, 0), 1);
-      const move = (next: PointerEvent) => {
-        const x = clamp((next.clientX - box.left) / box.width);
-        const y = clamp((next.clientY - box.top) / box.height);
-        current = {
-          height: Math.abs(y - origin.y),
-          width: Math.abs(x - origin.x),
-          x: Math.min(x, origin.x),
-          y: Math.min(y, origin.y),
-        };
-        setDraft(current);
-      };
-      const up = () => {
-        element.removeEventListener('pointermove', move);
-        element.removeEventListener('pointerup', up);
-        setDraft(null);
-        const rect = current as Rect | null;
-        if (rect && rect.width > 0.02 && rect.height > 0.02) {
-          onAddNote({ rect, time: { start } });
-        } else if (!wasPlaying) {
-          controls.toggle();
-        }
-      };
-      element.addEventListener('pointermove', move);
-      element.addEventListener('pointerup', up);
-    };
 
     const claims = claimsAt(chapters, time);
     const timed = notes.filter((note) => note.time);

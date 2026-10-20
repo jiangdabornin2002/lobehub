@@ -35,28 +35,60 @@ const percent = (rect: Rect) => ({
 
 /** A region drawn on a frame, shown only while that frame is on screen. */
 export interface FrameRegion {
+  /**
+   * The colour the screenshot uses for the same kind of mark: the annotation
+   * red for a draft, the overlay colour for a posted comment. A reject note has
+   * neither colour nor number and keeps the red box with its text.
+   */
+  color?: string;
   comment?: string;
   key: number | string;
+  /**
+   * The number this region carries in the list beside the video. A numbered
+   * region shows the number instead of its text: the words live in the list,
+   * and a sentence painted over the frame hides what it is about.
+   */
+  label?: number | string;
   rect: Rect;
   start: number;
 }
 
 export const FrameRegions = ({
+  active,
   paused,
   regions,
   time,
 }: {
+  /** The region being read or written: its badge takes the selected outline. */
+  active?: number | string;
   paused: boolean;
   regions: FrameRegion[];
   time: number;
 }) =>
   regions
     .filter((region) => isOnFrame(region.start, time, paused))
-    .map((region) => (
-      <div className={styles.region} key={region.key} style={percent(region.rect)}>
-        {region.comment && <span className={styles.regionLabel}>{region.comment}</span>}
-      </div>
-    ));
+    .map((region) =>
+      region.label === undefined && region.color === undefined ? (
+        <div className={styles.region} key={region.key} style={percent(region.rect)}>
+          {region.comment && <span className={styles.regionLabel}>{region.comment}</span>}
+        </div>
+      ) : (
+        <div
+          className={styles.mark}
+          key={region.key}
+          style={{ ...percent(region.rect), borderColor: region.color }}
+        >
+          {region.label !== undefined && (
+            <span
+              className={cx(styles.markBadge, region.key === active && styles.markBadgeActive)}
+              style={{ background: region.color }}
+            >
+              {region.label}
+            </span>
+          )}
+        </div>
+      ),
+    );
 
 export const DraftRegion = ({ rect }: { rect: Rect }) => (
   <div className={styles.draft} style={percent(rect)} />
