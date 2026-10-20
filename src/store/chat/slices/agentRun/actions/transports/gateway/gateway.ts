@@ -18,12 +18,11 @@ import type {
   ChatTopic,
   ChatTopicMetadata,
   ChatTopicStatus,
-  ContextSelection,
+  ComposerUserMessage,
   ConversationContext,
   ExecAgentClientIds,
   ExecAgentResult,
   MessageMetadata,
-  PageSelection,
   RuntimeMentionedAgent,
 } from '@lobechat/types';
 import { resolveAgentAgencyConfig } from '@lobechat/types';
@@ -977,11 +976,6 @@ export class GatewayActionImpl {
     clientIds?: ExecAgentClientIds;
     /** Agent/runtime context used to execute the server operation. */
     context: ConversationContext;
-    /**
-     * Content attached to the message from the conversation, a page or code.
-     * The server persists it on the user row that replaces the optimistic one.
-     */
-    contextSelections?: ContextSelection[];
     /** File IDs of already-uploaded attachments to attach to the new user message */
     fileIds?: string[];
     message: string;
@@ -1001,8 +995,6 @@ export class GatewayActionImpl {
     onComplete?: () => void;
     /** Temporary sidebar topic inserted by sendMessage before the server creates the real topic. */
     optimisticTopic?: { id: string; metadata?: ChatTopicMetadata; title: string };
-    /** Page-editor selections, mirrored from `contextSelections` for compatibility. */
-    pageSelections?: PageSelection[];
     /** Parent message ID for regeneration/continue (skip user message creation, branch from this message) */
     parentMessageId?: string;
     /**
@@ -1076,12 +1068,17 @@ export class GatewayActionImpl {
      * event to call `replaceMessages` with the server's real message IDs.
      */
     tempMessageIds?: string[];
+    /**
+     * The composer-authored part of the new user message (rich text, attached
+     * content). The server persists the row on this path, so whatever is left
+     * out here vanishes once its row replaces the optimistic one.
+     */
+    userMessage?: ComposerUserMessage;
   }): Promise<ExecAgentResult> => {
     const {
       clientIds,
       clientOperations,
       context: executionContext,
-      contextSelections,
       fileIds,
       message,
       messageContext = executionContext,
@@ -1090,7 +1087,6 @@ export class GatewayActionImpl {
       onMessageAccepted,
       onTopicCreated,
       optimisticTopic,
-      pageSelections,
       parentMessageId,
       parentOperationId,
       precreatedResult,
@@ -1103,6 +1099,7 @@ export class GatewayActionImpl {
       selectedToolIds,
       mentionedAgents,
       tempMessageIds,
+      userMessage,
     } = params;
 
     const agentGatewayUrl = getGatewayServerConfig()?.agentGatewayUrl;
@@ -1285,11 +1282,9 @@ export class GatewayActionImpl {
               },
               ...desktopDeviceHints,
               clientOperations,
-              contextSelections,
               fileIds,
               replacesOperationId,
               mentionedAgents,
-              pageSelections,
               parentMessageId,
               prompt: message,
               resumeApproval,
@@ -1302,6 +1297,7 @@ export class GatewayActionImpl {
               steer: metadata?.steer,
               trigger: metadata?.trigger,
               userInterventionConfig,
+              userMessage,
             }),
             abortSignal,
             (abandoned) =>
